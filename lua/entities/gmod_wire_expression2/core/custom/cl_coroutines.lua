@@ -4,7 +4,7 @@ local function desc(name,desc)
 end
 
 desc("coroutine(s)","Creates a coroutine object to be run with xco:resume()")
-desc("coroutineRunning()","Returns an array, the first object being a number 1 or 0 whether there is a coroutine running, the second being the coroutine running.")
+desc("coroutineRunning()","Returns the current e2 coroutine running, else nothing.")
 
 -- Metamethods
 desc("xco:status()","Returns a string of the status of the coroutine, 'dead' for finished, 'suspended' for yielded, and 'running' for obvious reasons")
