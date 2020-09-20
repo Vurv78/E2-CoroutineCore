@@ -9,7 +9,7 @@ Link to workshop addon: https://steamcommunity.com/sharedfiles/filedetails/?id=2
 
 ### Regular functions
 ```golo
-coroutine(s) # Creates a coroutine object to be run with xco:resume()
+coroutine(string functionname) # Creates a coroutine object to be run with xco:resume()
 coroutineRunning() # Returns the current coroutine object running, else nothing.
 ```
 
@@ -25,10 +25,10 @@ coroutine:reboot() # Returns a coroutine object that behaves as if the coroutine
 
 ```golo
 # Without a 'catch' function, behaves like pcall
-try(s) # Tries to run the first function, and returns an array with the first element being a number 1 or 0 for whether it successfully ran, and the next either being the error message or the return value of the 'try' function.
+try(string tryfunction) # Tries to run the first function, and returns an array with the first element being a number 1 or 0 for whether it successfully ran, and the next either being the error message or the return value of the 'try' function.
 
 # With catching - behaves like xpcall
-try(s,s) # Tries to run the first function, returns the same as try(s) but also calls a second callback function with the same results.
+try(string tryfunction,string catchfunction) # Tries to run the first function, returns the same as try(s) but also calls a second callback function with the same results.
 ```
 
 ## Usage
