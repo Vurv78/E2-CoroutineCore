@@ -60,6 +60,7 @@ if(first()){
     
     function number fyou(){
         print(coroutineRunning() ? "coroutine is running" : "nope") # --> coroutine is running
+        while(1){} # Why was this missing?
         return 69
     }
     
