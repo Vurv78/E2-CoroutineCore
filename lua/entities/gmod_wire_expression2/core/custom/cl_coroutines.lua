@@ -1,6 +1,6 @@
 local E2Desc = E2Helper.Descriptions
 local function desc(name,desc)
-    E2Desc[name] = desc
+    E2Desc[name] = (desc .. "[CoroutineCore]")
 end
 
 desc("coroutine(s)","Creates a coroutine object to be run with xco:resume()")
