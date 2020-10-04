@@ -17,4 +17,4 @@ desc("reboot(xco:)","Returns a coroutine object that behaves as if the coroutine
 desc("try(s)","Tries to run the first function, and returns an array with the first element being a number 1 or 0 for whether it successfully ran, and the next either being the error message or the return value of the 'try' function.")
 
 -- With catching
-desc("try(s,s)","Tries to run the first function, returns the same as try(s) but also calls a second callback function with the same results.")
+desc("try(ss)","Tries to run the first function, returns the same as try(s) but also calls a second callback function with the same results.")
