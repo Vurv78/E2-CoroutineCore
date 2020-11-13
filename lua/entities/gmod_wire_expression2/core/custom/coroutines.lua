@@ -216,43 +216,6 @@ e2function coroutine coroutineRunning() -- Returns the actual thread being run. 
     return thread
 end
 
--- Literally like pcall()
--- Returns array, first argument is a number stating whether the function executed successfully, rest are varargs.
-
-e2function array try(string try) -- If you *really* want to pass arguments to the function then just make another function that calls that function.
-    local tryfnc = getE2FuncFromStr(self,try)
-    if not tryfnc then error("Try called without an existing try function ["..try.."]",0) end
-    local success,errstr,args = runE2InstanceSafe(self,tryfnc)
-    if success then
-        table_insert(args,1,1)
-        return args
-    else
-        return {0,errstr}
-    end
-end
-
-
--- Literally like xpcall()
--- Behaves exactly like try(string try) except it also calls a catch function given.
--- The catch function will only run if it errored.
-
-e2function array catch(string try,string catch) -- If you *really* want to pass arguments to the function then just make another function that calls that function.
-    local tryfnc,catchfnc = getE2FuncFromStr(self,try),getE2FuncFromStr(self,catch)
-    if not tryfnc then error("Try called without an existing try function ["..try.."]",0) end
-    if not catchfnc then error("Try called without an existing catch function ["..catch.."]",0) end
-    
-    local success,errstr,args = runE2InstanceSafe(self,tryfnc)
-    if success then
-        table_insert(args,1,1)
-        return args
-    else
-        runE2InstanceSafe(self,catchfnc,buildBody{
-            ["s"] = errstr
-        })
-        return {0,errstr}
-    end
-end
-
 __e2setcost(15)
 
 e2function coroutine coroutine:reboot() -- Returns the coroutine as if it was just created, 'reboot'ing it.
