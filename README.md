@@ -25,15 +25,7 @@ coroutine:yield() # Makes the current coroutine running yield, does not actually
 coroutine:reboot() # Returns a coroutine object that behaves as if the coroutine given was never started or was reset, 'rebooting' it. Same as creating a new coroutine(s) with the same function, but cheaper.
 ```
 
-### Try & Catch Functions( Kind of separate )
-
-```golo
-# Without a 'catch' function, behaves like pcall
-try(string tryfunction) # Tries to run the first function, and returns an array with the first element being a number 1 or 0 for whether it successfully ran, and the next either being the error message or the return value of the 'try' function.
-
-# With catching - behaves like xpcall
-try(string tryfunction,string catchfunction) # Tries to run the first function, returns the same as try(s) but also calls a second callback function with the same results.
-```
+Try and Catch functions have been removed. Please use VExtensions if you want these! https://github.com/Vurv78/VExtensions
 
 ## Usage
 
