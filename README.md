@@ -13,6 +13,8 @@ Link to workshop addon: https://steamcommunity.com/sharedfiles/filedetails/?id=2
 ```golo
 coroutine(string functionname) # Creates a coroutine object to be run with xco:resume()
 coroutineRunning() # Returns the current coroutine object running, else nothing.
+coroutineYield() # See xco:yield()
+coroutineWait(number waitseconds) # See xco:wait(number waitseconds)
 ```
 
 ### Metamethods
@@ -37,14 +39,14 @@ try(string tryfunction,string catchfunction) # Tries to run the first function, 
 
 ```golo
 @name E2-Coroutine Examples
-@persist Co:coroutine Done Result:array
+@persist Co:coroutine
 
 if(first()){
     runOnTick(1)
     function number yes(){
         local I = 0
         print("...")
-        Co:wait(2)
+        coroutineWait(3) # Use either the metamethod or this one.
         print("Hey you, you're finally awake.")
         Co:wait(2)
         print("You were trying to cross the border right?")
@@ -60,42 +62,27 @@ if(first()){
         return 69
     }
     
-    function number fyou(){
+    function number bruh(){
         print(coroutineRunning() ? "coroutine is running" : "nope") # --> coroutine is running
-        while(1){} # Why was this missing?
+        coroutineYield()
+        print("bruh")
         return 69
     }
     
-    function string doerror(){
-        print("hello world")
-        # This will error because it is not returning a string.
-    }
-    function callback(A:array){
-        print("Try failed with message: " + A[2,string])
-    }
-    Co = coroutine("yes")
-    Co:resume()
-    
-    print(try("doerror")) # -- > [0,Function doerror() executed and didn't return a value - expecting a value of type string]
-    
-    try("doerror","callback") # --> Runs function callback() with array provided that returns the same values as the top example.
-    
-    #print(try("fyou")) # --> [0,tick quota exceeded]
-    
-    local O = coroutine("fyou")
+    local O = coroutine("bruh")
+    O:resume()
     O:resume()
     
     O = O:reboot()
     O:resume()
+    # Doesn't resume a second time, no 'bruh' output
 
-}elseif(!Done & tickClk()){
+}elseif(tickClk()){
     if(Co:status()!="dead"){
-        Result = Co:resume()
+        Co:resume()
     }else{
         runOnTick(0)
-        Done = 1
-        print("Finished e2 coroutine. Printing return result!")
-        print(Result)
+        print("Finished e2 coroutine!")
     }
 }
 ```
