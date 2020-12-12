@@ -1,5 +1,8 @@
 # E2-Coroutine Core
 
+This won't be worked on until I get an actual workflow with VExtensions going. https://github.com/Vurv78/VExtensions/wiki/CoroutineCore
+Will be archived until that happens.
+
 This is an extension for an addon for Garry's Mod, wiremod, specifically expression2.
 This adds coroutine and try & catch functionality to e2, that lets you do stuff like make a function sleep for a few seconds or make a function that has four 'for' loops in each other without hitting quota.
 
