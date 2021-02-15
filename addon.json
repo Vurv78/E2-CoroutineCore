@@ -1,14 +1,17 @@
 {
-	"title"		:	"E2 Coroutine-Core",
-	"type"		:	"tool",
-	"tags"		:	[ "build", "fun"],
+    "title"		:	"E2 Coroutine-Core",
+    "type"		:	"tool",
+    "tags"		:	[ "build", "fun"],
     "description":	"An extension for wiremod's expression2 that adds coroutine functionality",
     "author" : "Vurv",
-	"ignore"	:
-	[
-		".git*",
-		".gitignore",
+    "ignore"	:
+    [
+        ".git*",
         "HowToUse.txt",
-        "README.md"
-	]
+        "*.md",
+        "*.jpg",
+        "*.bat",
+        "temp.gma",
+        "log.txt"
+    ]
 }

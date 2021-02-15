@@ -1,116 +1,33 @@
 --[[
-   ______                            __   _                   
+   ______                            __   _
   / ____/____   _____ ____   __  __ / /_ (_)____   ___   _____
  / /    / __ \ / ___// __ \ / / / // __// // __ \ / _ \ / ___/
-/ /___ / /_/ // /   / /_/ // /_/ // /_ / // / / //  __/(__  ) 
-\____/ \____//_/    \____/ \__,_/ \__//_//_/ /_/ \___//____/  
- Gives Access to lua's coroutines to e2, can do everything lua coroutines can do,
-    Can't halt lua's coroutines so it is safe.
+/ /___ / /_/ // /   / /_/ // /_/ // /_ / // / / //  __/(__  )
+\____/ \____//_/    \____/ \__,_/ \__//_//_/ /_/ \___//____/
+
+ Gives access to Lua's coroutines to E2, can do everything Lua coroutines can do,
+    Can't halt Lua's coroutines, so it is safe.
 ]]
 
-if vex then print("This server already has VExtensions installed. CoroutineCore comes with this. Please uninstall CoroutineCore's separate addon.") return end
+-- CoroutineCore by Vurv & The team at VExtensions.
+-- https://github.com/Vurv78/VExtensions
 
-local running = coroutine.running
+if vex then print("This server already has VExtensions. Uninstall Coroutine-Core!") return end
 
-local table_remove = table.remove
-local table_copy = table.Copy
+-- Shouldn't be hacky anymore. Behaves just like regular e2, and 'local' variables are useful as they are the only ones that persist in a thread now.
+
+-- Function localization (local lookup is faster).
+local coroutine_running, coroutine_create, coroutine_resume, coroutine_yield, coroutine_status, coroutine_wait = coroutine.running, coroutine.create, coroutine.resume, coroutine.yield, coroutine.status, coroutine.wait
+local string_match, string_replace = string.match, string.Replace -- String Library
+local newE2Table = E2Lib.newE2Table
+-- Functions re-imported from here: https://github.com/Vurv78/VExtensions/blob/master/lua/vex_library/modules/server/e2core.lua.
+
+local function throw(...)
+    error( string.format(...) )
+end
+
 local table_insert = table.insert
-local table_add = table.Add
-
-local function e2err(msg)
-    error(msg,0)
-end
-
-E2Lib.RegisterExtension("coroutines", false, "Allows E2s to use coroutines.")
-
--- Coroutine Object handling
-
-registerType("coroutine", "xco", nil,
-	nil,
-	nil,
-	function(ret)
-		if not ret then return end
-		if type(ret)~="thread" then return end
-		error("Return value is neither nil nor a coroutine, but a "..type(ret).."!",0)
-	end,
-	function(v)
-		return type(v)~="thread"
-	end
-)
-
-registerCallback("construct", function(self) -- On e2 placed, initialize coroutines. gives compiler to function
-	self.coroutines = {}
-end)
-
-
-registerCallback("destruct",function(self) -- On e2 deleted, deletes all coroutines. gives compiler to function
-    self.coroutines = {}
-end)
-
-__e2setcost(2)
-
-e2function coroutine operator=(coroutine lhs, coroutine rhs) -- Co = coroutine("bruh(e:)")
-	local scope = self.Scopes[ args[4] ]
-	scope[lhs] = rhs
-	scope.vclk[lhs] = true
-	return rhs
-end
-
-e2function number operator==(coroutine lhs, coroutine rhs) -- if(coroutineRunning()==Co)
-    return lhs == rhs
-end
-
-e2function number operator_is(coroutine co) -- if(coroutineRunning())
-    return co and 1 or 0
-end
-
-local save = nil
-
-local function popPrfData(instance)
-    local Data = {
-        prf = instance.prf,
-        prfcount = instance.prfcount,
-        prfbench = instance.prf,
-        timebench = instance.timebench,
-        time = instance.time,
-    }
-    return Data
-end
-
-local function loadPrfData(instance,data)
-    for K,V in pairs(data) do
-        instance[K] = V
-    end
-end
-
-local function createCoroutine(compiler,runtime,e2func)
-    local thread = coroutine.create(runtime)
-    -- Data that we keep so we know whether a coroutine was created by e2 or not.
-    compiler.coroutines[thread] = e2func
-    return thread
-end
-
-local function runningCo(compiler) -- Don't return if a glua coroutine is running
-    local thread = coroutine.running()
-    if not thread then return end
-    if compiler.coroutines[thread] then return thread end
-end
-
-local function getE2FuncFromStr(compiler,funcname)
-    local funcs = compiler.funcs
-    local e2func = funcs[funcname]
-    if not e2func then -- We will look for any udfs that have the name before the parenthesis.
-        local fncnameproper = funcname:match("(%w*)%(") or funcname
-        for K,V in pairs(funcs) do
-            local proper = K:match("(%w*)%(")
-            if proper and string.find(proper,fncnameproper) then return V end
-        end
-    else
-        return e2func
-    end
-end
-
-local function buildBody(args) -- WHY WIRETEAM WHY??? ( We need this to pass args into udfs )
+local function buildBody(args)
     local body = {
         false -- No idea what this does, but it is necessary
     }
@@ -118,112 +35,278 @@ local function buildBody(args) -- WHY WIRETEAM WHY??? ( We need this to pass arg
     for Type,Value in pairs(args) do
         table_insert(body,{
             [1] = function() return Value end,
-            ["TraceName"] = "LITERAL" -- yup
+            ["TraceName"] = "LITERAL"
         })
         table_insert(types,Type)
     end
     table_insert(body,types)
     return body
-end -- We need to build a body in order to pass args to an e2 function.
-
--- We use this for try and catch
-local function runE2InstanceSafe(compiler,func,body) -- Varargs to pass to the e2 function
-    -- Will always return pcallerror,errstr first even if it didn't error.
-    local args = {pcall(func,compiler,body)}
-    local success = table_remove(args,1)
-    if success then
-        return true,"none",args
-    else
-        -- Don't return args, that would be a waste
-        local errmsg = table_remove(args,1)
-        if errmsg == "perf" then errmsg = "tick quota exceeded" end
-        return false,errmsg
-    end
 end
 
-__e2setcost(20)
-
-e2function coroutine coroutine(string FuncName)
-    if not FuncName then return end
-    local e2func = getE2FuncFromStr(self,FuncName)
-    if not e2func then return end
-    local runtime = function()
-        return true,e2func(table_copy(self))
-    end
-    return createCoroutine(self,runtime,e2func)
-end
-
-__e2setcost(5)
-
-local function customWait(instance,n)
-	local endtime = CurTime() + n
-	while endtime > CurTime() do
-		coroutine.yield(popPrfData(instance))
-	end
-end
-
-e2function void coroutineYield()
-    if not runningCo(self) then e2err("Attempted to yield a coroutine without an e2 coroutine running.") return end
-    loadPrfData(self, coroutine.yield( popPrfData(self) ) )
-end
-
-e2function void coroutine:yield()
-    if not this then return end
-    if not runningCo(self) then e2err("Attempted to yield a coroutine without an e2 coroutine running.") return end
-    loadPrfData(self, coroutine.yield( popPrfData(self) ) )
-end
-
-e2function void coroutine:wait(n)
-    if not this then return end
-    if not runningCo(self) then e2err("Attempted to wait outside of the coroutine given.") end
-    customWait(self,n)
-end
-
-e2function void coroutineWait(n)
-    if not runningCo(self) then e2err("Attempted to wait outside of an e2 coroutine.") return end
-    customWait(self,n)
-end
-
-e2function void coroutine:resume()
-    if not this then return end
-    local bench = SysTime()
-    local co_success,prfDataOrDone,vararg = coroutine.resume(this,popPrfData(self))
-    -- If this isn't true, then the coroutine has not finished.
-    if prfDataOrDone ~= true then
-        if not co_success then
-            local err = prfDataOrDone
-            if err == "exit" then return end
-            if err == "perf" then err = "tick quota exceeded" end
-            err = string.match(err,"entities/gmod_wire_expression2/core/core.lua:%d+:(.*)") or err -- ( in e2 code ) error("hello world")
-            e2err("COROUTINE ERROR: " .. err)
+local E2FuncNamePattern = "^([a-z][a-zA-Z0-9_]*)%("
+local E2SignaturePattern = E2FuncNamePattern .. "(.*)%)$"
+local string_match = string.match
+local function getE2UDF(compiler, funcName, expectedReturnType, expectedArgTypes)
+    local funcs, funcs_ret = compiler.funcs, compiler.funcs_ret
+    local e2func = funcs[funcName]
+    if e2func then
+        local returnType = funcs_ret[funcName]
+        if expectedReturnType and returnType ~= expectedReturnType then
+            return
         end
-        prfDataOrDone.time = prfDataOrDone.time + (SysTime() - bench)
-        loadPrfData(self,prfDataOrDone)
-        self.entity:UpdateOverlay()
+        if expectedArgTypes then
+            local _, argTypes = string_match(funcName, E2SignaturePattern)
+            if argTypes ~= expectedArgTypes then
+                return
+            end
+        end
+        return e2func, true, returnType
+    end
+    funcName = string_match(funcName, E2FuncNamePattern) or funcName
+    for signature, fn in pairs(funcs) do
+        local name, argTypes = string_match(signature, E2SignaturePattern)
+        if name == funcName then
+            local returnType = funcs_ret[signature]
+            if expectedReturnType and returnType ~= expectedReturnType then
+                continue
+            end
+            if expectedArgTypes and argTypes ~= expectedArgTypes then
+                continue
+            end
+            return fn, false, returnType
+        end
     end
 end
 
-__e2setcost(3)
+-- Max coroutines to have at once in a chip. This is around 1-5 megabytes of coroutines in memory usage.
+E2Lib.registerConstant("XCO_MAX",500)
+local CO_MAX = 500
 
-e2function string coroutine:status()
-    if not this then return end
-    return coroutine.status(this)
+-- How many recursions of coroutine creation can be done before an e2 chip is halted.
+E2Lib.registerConstant("XCO_STACK_MAX", 50)
+local CO_OVERFLOW = 50
+
+E2Lib.RegisterExtension("coroutines", true, "Allows E2s to use coroutines.")
+
+-- Coroutine Object handling
+registerType("coroutine", "xco", nil,
+    nil,
+    nil,
+    function(ret)
+        -- For some reason we don't throw an error here.
+        -- See https://github.com/wiremod/wire/blob/501dd9875ab1f6db37a795e1f9a946d382db4f1f/lua/entities/gmod_wire_expression2/core/entity.lua#L10
+
+        if not ret then return end
+        if type(ret)~="thread" then throw("Return value is neither nil nor a coroutine, but a %s!",type(ret)) end
+    end,
+    function(v)
+        return type(v)~="thread"
+    end
+)
+
+-- Initialize coroutines
+registerCallback("construct", function(self)
+    self.coroutines = { total = 0 }
+end)
+
+-- When the E2 is being cleaned up, delete all of the coroutines.
+registerCallback("destruct", function(self)
+    self.coroutines = nil
+end)
+
+__e2setcost(2)
+e2function coroutine operator=(coroutine lhs, coroutine rhs) -- Co = coroutine("bruh(e:)")
+    local scope = self.Scopes[ args[4] ]
+    scope[lhs] = rhs
+    scope.vclk[lhs] = true
+    return rhs
 end
 
-e2function coroutine coroutineRunning() -- Returns the actual thread being run. No need to return a number before since we added the if operator on coroutines.
-    local thread = runningCo(self)
-    if not thread then return end
+e2function number operator==(coroutine lhs, coroutine rhs) -- if(coroutineRunning()==Co)
+    return lhs == rhs
+end
+
+e2function number operator!=(coroutine lhs, coroutine rhs) -- if(coroutineRunning()!=Co)
+    return lhs ~= rhs
+end
+
+e2function number operator_is(coroutine co) -- if(coroutineRunning())
+    return co and 1 or 0
+end
+
+-- Resumes a coroutine made with expression2.
+local function e2coroutine_resume( self, thread, data )
+    self.coroutines.running = thread
+    local co_success, result_or_error = coroutine_resume(thread, data)
+    self.coroutines.running = nil
+    if co_success then
+        -- Could be done, could've successfully yielded.
+        return result_or_error
+    else
+        -- Error in coroutine runtime. Prefixes with "Coroutine Error: "
+        local err = result_or_error
+        if err == "exit" then return end -- exit() or reset()
+        if err == "perf" then return throw("tick quota exceeded") end
+        err = string_match(err, "^entities/gmod_wire_expression2/core/core.lua:%d+: (.*)$") or err
+        -- Anti-recursion StartsWith check to see if the prefix was already applied inside another coroutine scope's error.
+        err = (not err:StartWith("Coroutine Error: ")) and ("Coroutine Error: "..err) or err
+        return throw( string_replace(err, "%", "%%") ) -- People could error with an % in it and break patterns
+    end
+end
+
+
+-- Returns a new coroutine that behaves just the same as when the given coroutine was created.
+local function e2coroutine_reboot(self,thread,args)
+    local udf = self.coroutines[thread].udf
+    if not udf then return end
+    return createCoroutine(self,udf,args)
+end
+
+local function getCoroutineUDF( self, func_name, has_args )
+    local e2func, _, returnType = getE2UDF(self, func_name, nil, has_args and "t" or "")
+    if not e2func then throw("Coroutine was called with undefined function [%s(%s)]", func_name, has_args and "table" or "") end
+    if not (returnType == "" or returnType == "t") then throw("Coroutine's UDF [%s] must return either void or table", func_name) end
+    return e2func
+end
+
+local function assertRunning(self, yielding)
+    -- Attempt to yield across C-call boundary. Keyword is either 'yield' or 'wait'
+    if not self.coroutines.running then
+        throw("Attempted to %s coroutine without an e2 coroutine running.", yielding and "yield a" or "wait")
+    end
+end
+
+local function createCoroutine(self, e2_udf, arg_table)
+    -- Anti-coroutine creation infinite loop.
+    local active_thread = self.coroutines.running
+
+    local stack_level = 0
+    local thread_data = self.coroutines[active_thread]
+    if active_thread then
+        stack_level = thread_data.stack_level + 1
+        -- Ok, we are back if not at a better level of cpu time with coroutines.
+        -- Still going to set it at 50 because e2 should be pretty slow in comparison to lua.
+        if stack_level >= CO_OVERFLOW then return throw("Coroutine stack overflow") end
+    end
+
+    -- Shared memory
+    local instance = setmetatable({
+        Scopes = self.Scopes,
+        Scope = self.Scope,
+        ScopeID = self.ScopeID
+    },{
+        __index = self,
+        __newindex = self,
+        __mode = "k" -- Don't use weak keys, it ends up destroying instance.Scope / instance.Scopes and breaking stuff.
+    })
+
+    self.coroutines.total = self.coroutines.total + 1
+    local thread = coroutine_create(function()
+        local ret = e2_udf(instance, arg_table and buildBody({["t"]=arg_table}) or nil)
+        self.coroutines[coroutine_running()] = nil
+        instance = nil
+        self.coroutines.total = self.coroutines.total - 1
+        return ret
+    end)
+
+    self.coroutines[thread] = {
+        udf = e2_udf,
+        stack_level = stack_level,
+        instance = instance
+    }
+    self.prf = self.prf + (stack_level/CO_OVERFLOW)*500
     return thread
 end
 
-__e2setcost(15)
+__e2setcost(80)
+e2function coroutine coroutine(string func_name)
+    -- Coroutines can only return a table of data in order to keep type-safety.
+    if self.coroutines.total > CO_MAX then throw("You've reached the max amount of coroutines for a single chip. [%d]", CO_MAX) end
+    local e2func = getCoroutineUDF(self, func_name)
+    return createCoroutine(self, e2func)
+end
 
-e2function coroutine coroutine:reboot() -- Returns the coroutine as if it was just created, 'reboot'ing it.
+e2function coroutine coroutine(string func_name, table args)
+    if self.coroutines.total > CO_MAX then throw("You've reached the max amount of coroutines for a single chip. [%d]", CO_MAX) end
+    local e2func = getCoroutineUDF(self, func_name, true)
+    return createCoroutine(self, e2func, args)
+end
+
+__e2setcost(5)
+e2function table coroutineYield()
+    assertRunning(self, true)
+    return coroutine_yield() or newE2Table()
+end
+
+e2function table coroutineYield(table data)
+    assertRunning(self, true)
+    return coroutine_yield(data) or newE2Table()
+end
+
+e2function table coroutine:yield()
+    if not this then return newE2Table() end
+    assertRunning(self, true)
+    return coroutine_yield() or newE2Table()
+end
+
+e2function table coroutine:yield(table data)
+    if not this then return newE2Table() end
+    assertRunning(self, true)
+    return coroutine_yield(data) or newE2Table()
+end
+
+e2function void coroutine:wait(seconds)
     if not this then return end
-    local e2func = self.coroutines[this]
-    if not e2func then return end
-    local runtime = function()
-        return true,e2func(table_copy(self))
-    end
-    return createCoroutine(self,runtime,e2func)
+    assertRunning(self)
+    coroutine_wait(seconds)
+end
+
+e2function void coroutineWait(seconds)
+    assertRunning(self)
+    coroutine_wait(seconds)
+end
+
+e2function table coroutine:resume()
+    if not this then return newE2Table() end
+    return e2coroutine_resume(self, this) or newE2Table()
+end
+
+e2function table coroutine:resume(table data)
+    if not this then return newE2Table() end
+    return e2coroutine_resume(self, this, data) or newE2Table()
+end
+
+__e2setcost(3)
+e2function string coroutine:status()
+    if not this then return "" end
+    return coroutine_status(this)
+end
+
+-- Returns the currently active E2 coroutine/thread (or nil if this is running on the main thread).
+e2function coroutine coroutineRunning()
+    return self.coroutines.running
+end
+
+__e2setcost(50)
+
+-- Returns the coroutine as if it was just created, 'reboot'ing it.
+e2function coroutine coroutine:reboot()
+    if not this then return end
+    return e2coroutine_reboot(self, this)
+end
+
+e2function coroutine coroutine:reboot(table args)
+    if not this then return end
+    return e2coroutine_reboot(self, this, args)
+end
+
+__e2setcost(1)
+
+e2function coroutine nocoroutine()
+    return nil
+end
+
+__e2setcost(2)
+e2function number coroutinesLeft()
+    return CO_MAX - self.coroutines.total
 end
